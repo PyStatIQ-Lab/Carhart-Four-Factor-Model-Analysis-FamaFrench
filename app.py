@@ -27,7 +27,7 @@ st.sidebar.header("User Input Parameters")
 @st.cache_data
 def load_stock_list():
     try:
-        stock_data = pd.read_excel("stocklist.xlsx", sheet_name=None)
+        stock_data = pd.read_excel("stocklist1.xlsx", sheet_name=None)
         return stock_data
     except Exception as e:
         st.error(f"Error loading stock list: {e}")
