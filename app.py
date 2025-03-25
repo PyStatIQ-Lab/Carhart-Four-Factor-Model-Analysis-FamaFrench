@@ -110,13 +110,22 @@ def download_factor_data(start_date, end_date):
 @st.cache_data
 def download_stock_data(ticker, start_date, end_date):
     try:
-        stock = yf.download(ticker, start=start_date, end=end_date)
+        # Ensure we don't double-append .NS
+        if not ticker.endswith('.NS'):
+            ticker += '.NS'
+            
+        stock = yf.download(ticker, start=start_date, end=end_date, progress=False)
         if stock.empty:
+            st.warning(f"No data found for {ticker}. Please try another stock.")
             return None
-        return stock['Close']
+        return stock['Adj Close']
     except Exception as e:
-        st.error(f"Error downloading stock data for {ticker}: {e}")
+        st.error(f"Error downloading stock data for {ticker}: {str(e)}")
         return None
+
+# Then in the analysis section:
+ticker = selected_stock if selected_stock.endswith('.NS') else selected_stock + '.NS'
+stock_prices = download_stock_data(ticker, start_date_str, end_date_str)
 
 # Main analysis function
 def run_carhart_model(stock_returns, factors):
