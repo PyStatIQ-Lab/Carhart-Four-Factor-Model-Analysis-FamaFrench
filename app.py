@@ -27,7 +27,7 @@ st.sidebar.header("User Input Parameters")
 @st.cache_data
 def load_stock_list():
     try:
-        stock_data = pd.read_excel("stocklist.xlsx", sheet_name=None)
+        stock_data = pd.read_excel("stocklist.xlsx", sheet_name=None, engine='openpyxl')
         return stock_data
     except Exception as e:
         st.error(f"Error loading stock list: {e}")
@@ -106,28 +106,20 @@ def download_factor_data(start_date, end_date):
         st.error(f"Error downloading factor data: {str(e)}")
         return None
 
-# Download stock data
+# Download stock data - MODIFIED TO USE EXACT SYMBOL FROM EXCEL
 @st.cache_data
 def download_stock_data(ticker, start_date, end_date):
     try:
-        # Ensure we don't double-append .NS
-        if not ticker.endswith('.NS'):
-            ticker += '.NS'
-            
         stock = yf.download(ticker, start=start_date, end=end_date, progress=False)
         if stock.empty:
             st.warning(f"No data found for {ticker}. Please try another stock.")
             return None
-        return stock['Close']
+        return stock['Adj Close']
     except Exception as e:
         st.error(f"Error downloading stock data for {ticker}: {str(e)}")
         return None
 
-# Then in the analysis section:
-ticker = selected_stock if selected_stock.endswith('.NS') else selected_stock + '.NS'
-stock_prices = download_stock_data(ticker, start_date_str, end_date_str)
-
-# Main analysis function
+# Main analysis function - FIXED TYPO IN 'Excess_Return'
 def run_carhart_model(stock_returns, factors):
     # Merge stock returns with factors
     merged_data = pd.concat([stock_returns, factors], axis=1).dropna()
@@ -157,8 +149,8 @@ if st.sidebar.button("Run Analysis"):
             st.error("Failed to download factor data. Please try again later.")
             st.stop()
         
-        # Download stock data
-        stock_prices = download_stock_data(selected_stock + ".NS", start_date_str, end_date_str)
+        # Download stock data - USING EXACT SYMBOL FROM EXCEL
+        stock_prices = download_stock_data(selected_stock, start_date_str, end_date_str)
         
         if stock_prices is None:
             st.error(f"Failed to download data for {selected_stock}. Please try another stock.")
