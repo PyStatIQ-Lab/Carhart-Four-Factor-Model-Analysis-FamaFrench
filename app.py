@@ -118,7 +118,7 @@ def download_stock_data(ticker, start_date, end_date):
         if stock.empty:
             st.warning(f"No data found for {ticker}. Please try another stock.")
             return None
-        return stock['Adj Close']
+        return stock['Close']
     except Exception as e:
         st.error(f"Error downloading stock data for {ticker}: {str(e)}")
         return None
