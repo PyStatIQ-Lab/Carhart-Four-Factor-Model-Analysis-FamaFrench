@@ -6,6 +6,9 @@ import statsmodels.api as sm
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import seaborn as sns
+import io
+import requests
+import zipfile
 
 # Set page configuration
 st.set_page_config(page_title="Carhart Four-Factor Model", layout="wide")
@@ -61,29 +64,36 @@ with col2:
 start_date_str = start_date.strftime('%Y-%m-%d')
 end_date_str = end_date.strftime('%Y-%m-%d')
 
-# Download factor data
+# Improved factor data download function
 @st.cache_data
 def download_factor_data(start_date, end_date):
     try:
-        # For Indian market, we would typically use Indian factor data
-        # For demonstration, we'll use Fama-French factors (US market)
-        # In a real implementation, you would use appropriate factors for your market
-        
-        # Download Fama-French 3 factors + momentum (Carhart 4 factors)
+        # Fama-French 3 factors + Momentum (Carhart 4 factors)
         ff_url = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
         mom_url = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Momentum_Factor_daily_CSV.zip"
         
-        # Read factors
-        factors = pd.read_csv(ff_url, skiprows=3, index_col=0, compression='zip')
-        mom = pd.read_csv(mom_url, skiprows=13, index_col=0, compression='zip')
+        # Download and process Fama-French 3 factors
+        ff_response = requests.get(ff_url)
+        with zipfile.ZipFile(io.BytesIO(ff_response.content)) as z:
+            with z.open(z.namelist()[0]) as f:
+                ff_data = pd.read_csv(f, skiprows=3, index_col=0)
+                # Find where the copyright notice begins
+                ff_data = ff_data[~ff_data.index.astype(str).str.contains("Copyright")]
+                ff_data.index = pd.to_datetime(ff_data.index, format='%Y%m%d')
+                ff_data.columns = ['Mkt-RF', 'SMB', 'HML', 'RF']
         
-        # Clean data
-        factors.index = pd.to_datetime(factors.index, format='%Y%m%d')
-        mom.index = pd.to_datetime(mom.index, format='%Y%m%d')
+        # Download and process Momentum factor
+        mom_response = requests.get(mom_url)
+        with zipfile.ZipFile(io.BytesIO(mom_response.content)) as z:
+            with z.open(z.namelist()[0]) as f:
+                mom_data = pd.read_csv(f, skiprows=13, index_col=0)
+                # Find where the copyright notice begins
+                mom_data = mom_data[~mom_data.index.astype(str).str.contains("Copyright")]
+                mom_data.index = pd.to_datetime(mom_data.index, format='%Y%m%d')
+                mom_data.columns = ['Mom']
         
         # Merge factors
-        all_factors = factors.join(mom, how='inner')
-        all_factors.columns = ['Mkt-RF', 'SMB', 'HML', 'RF', 'Mom']
+        all_factors = ff_data.join(mom_data, how='inner')
         
         # Convert to decimal
         all_factors = all_factors / 100
@@ -93,7 +103,7 @@ def download_factor_data(start_date, end_date):
         
         return all_factors
     except Exception as e:
-        st.error(f"Error downloading factor data: {e}")
+        st.error(f"Error downloading factor data: {str(e)}")
         return None
 
 # Download stock data
@@ -150,8 +160,9 @@ if st.sidebar.button("Run Analysis"):
         stock_returns.name = "Stock_Return"
         
         # Ensure we have matching dates
-        stock_returns = stock_returns[stock_returns.index.isin(factors.index)]
-        factors = factors[factors.index.isin(stock_returns.index)]
+        common_dates = stock_returns.index.intersection(factors.index)
+        stock_returns = stock_returns[common_dates]
+        factors = factors.loc[common_dates]
         
         if len(stock_returns) < 10 or len(factors) < 10:
             st.error("Not enough overlapping data points for analysis. Please adjust date range.")
@@ -216,10 +227,4 @@ st.sidebar.markdown("""
   2. Size (SMB - Small Minus Big)
   3. Value (HML - High Minus Low)
   4. Momentum (Mom)
-""")
-
-# Note about the implementation
-st.markdown("""
-**Note:** This implementation uses Fama-French factors (US market data) for demonstration purposes. 
-For actual analysis of Indian stocks, you would need to use appropriate factor data for the Indian market.
 """)
