@@ -113,7 +113,7 @@ def download_stock_data(ticker, start_date, end_date):
         stock = yf.download(ticker, start=start_date, end=end_date)
         if stock.empty:
             return None
-        return stock['Adj Close']
+        return stock['Close']
     except Exception as e:
         st.error(f"Error downloading stock data for {ticker}: {e}")
         return None
